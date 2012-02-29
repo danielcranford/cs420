@@ -47,7 +47,9 @@ class SealedDES {
     byte[] deskeyIN = new byte[8];
     byte[] deskeyOUT = new byte[8];
 
-    // Constructor: initialize the cipher
+    /**
+     * Constructor: initialize the cipher
+     */
     public SealedDES() {
         try {
             des_cipher = Cipher.getInstance("DES");
@@ -57,12 +59,13 @@ class SealedDES {
         }
     }
 
-    // Decrypt the SealedObject
-    //
-    //   arguments: SealedObject that holds on encrypted String
-    //   returns: plaintext String or null if a decryption error
-    //     This function will often return null when using an incorrect key.
-    //
+    /**
+     * Decrypt the SealedObject
+     * This function will often return null when using an incorrect key.
+     *
+     * @param cipherObj SealedObject that holds on encrypted String
+     * @return plaintext String or null if a decryption error
+     */
     public String decrypt(SealedObject cipherObj) {
         try {
             return (String) cipherObj.getObject(the_key);
@@ -72,11 +75,12 @@ class SealedDES {
         return null;
     }
 
-    // Encrypt the message
-    //
-    //  arguments: a String to be encrypted
-    //  returns: a SealedObject containing the encrypted string
-    //
+    /**
+     * Encrypt the message
+     * 
+     * @param plainstr a String to be encrypted
+     * @return a SealedObject containing the encrypted string
+     */
     public SealedObject encrypt(String plainstr) {
         try {
             des_cipher.init(Cipher.ENCRYPT_MODE, the_key);
@@ -88,10 +92,11 @@ class SealedDES {
         return null;
     }
 
-    //  Build a DES formatted key
-    //
-    //  Convert an array of 7 bytes into an array of 8 bytes.
-    //
+    /**
+     * Build a DES formatted key
+     *
+     *  Convert an array of 7 bytes into an array of 8 bytes.
+     */
     private static void makeDESKey(byte[] in, byte[] out) {
         out[0] = (byte) ((in[0] >> 1) & 0xff);
         out[1] = (byte) ((((in[0] & 0x01) << 6) | (((in[1] & 0xff) >> 2) & 0xff)) & 0xff);
@@ -107,7 +112,9 @@ class SealedDES {
         }
     }
 
-    // Set the key (convert from a long integer)
+    /**
+     * Set the key (convert from a long integer)
+     */
     public void setKey(long theKey) {
         try {
             // convert the integer to the 8 bytes required of keys
@@ -133,7 +140,9 @@ class SealedDES {
         }
     }
 
-    // Program demonstrating how to create a random key and then search for the key value.
+    /** 
+     * Program demonstrating how to create a random key and then search for the key value.
+     */
     public static void main(String[] args) {
         if (1 != args.length) {
             System.out.println("Usage: java SealedDES key_size_in_bits");
