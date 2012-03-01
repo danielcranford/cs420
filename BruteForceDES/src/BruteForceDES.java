@@ -1,12 +1,5 @@
-
-import java.io.PrintStream;
 import java.util.Random;
 import javax.crypto.SealedObject;
-
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 
 /**
  *
@@ -36,20 +29,14 @@ public class BruteForceDES {
         // Create a simple cipher
         final SealedDES enccipher = new SealedDES();
 
-        // Get a number between 0 and 2^64 - 1
-        long key = new Random().nextLong();
-
-        // Mask off the high bits so we get a short key
-        key = key & maxkey;
+        // Get a random key within the given range
+        long key = new Random().nextLong() & maxkey;
 
         // Set up a key
         enccipher.setKey(key);
 
         // Generate a sample string
         final String plainstr = "Johns Hopkins afraid of the big bad wolf?";
-
-        // Encrypt
-        SealedObject sldObj = enccipher.encrypt(plainstr);
 
         // Here ends the set-up.  Pretending like we know nothing except sldObj,
         // discover what key was used to encrypt the message.
@@ -66,6 +53,7 @@ public class BruteForceDES {
             threads[i] = new Thread(new Runnable(){
                 // Create a simple cipher
                 SealedDES deccipher = new SealedDES();
+                // Encrypt an object for each thread so that threads share nothing
                 SealedObject sldObj = enccipher.encrypt(plainstr);
 
                 @Override
