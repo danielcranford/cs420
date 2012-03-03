@@ -32,30 +32,23 @@ public class CoinFlip {
         
         if(args[0].equals("-speedup")) {
             for(int i = 1; i <= numberThreads; i++) {
-                CoinFlipperApp app = new CoinFlipperApp(i, numberIterations);
-                long t1 = System.currentTimeMillis();
-                app.runTest();
-                long elapsed = System.currentTimeMillis() - t1;
-                System.out.printf("Heads: %d Flips: %d Threads: %d Time: %d ms\n", app.getTotalHeads(), app.getTotalFlips(), i, elapsed);
+                timeTest(i, numberIterations);
             }
         } else if(args[0].equals("-scaleup")) {
             for(int i = 1; i <= numberThreads; i++) {
-                CoinFlipperApp app = new CoinFlipperApp(i, i*numberIterations);
-                long t1 = System.currentTimeMillis();
-                app.runTest();
-                long elapsed = System.currentTimeMillis() - t1;
-                System.out.printf("Heads: %d Flips: %d Threads: %d Time: %d ms\n", app.getTotalHeads(), app.getTotalFlips(), i, elapsed);
+                timeTest(i, i*numberIterations);
             }            
         } else {
-            CoinFlipperApp app = new CoinFlipperApp(numberThreads, numberIterations);
-            long t1 = System.currentTimeMillis();
-            app.runTest();
-            long elapsed = System.currentTimeMillis() - t1;
-
-            // print results
-            System.out.printf("%d heads in %d coin tosses\n", app.getTotalHeads(), app.getTotalFlips());
-            System.out.printf("Elapsed time: %dms\n", elapsed);
+            timeTest(numberThreads, numberIterations);
         }
+    }
+
+    private static void timeTest(int numberThreads, int numberIterations) throws InterruptedException {
+        CoinFlipperApp app = new CoinFlipperApp(numberThreads, numberIterations);
+        long t1 = System.currentTimeMillis();
+        app.runTest();
+        long elapsed = System.currentTimeMillis() - t1;
+        System.out.printf("Heads: %d Flips: %d Threads: %d Time: %d ms\n", app.getTotalHeads(), app.getTotalFlips(), numberThreads, elapsed);
     }
     
     
