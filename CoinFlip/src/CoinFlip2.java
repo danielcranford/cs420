@@ -1,11 +1,4 @@
-
-import java.util.Map;
 import java.util.Random;
-
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 
 /**
  *
@@ -43,7 +36,7 @@ public class CoinFlip2 {
                 long t1 = System.currentTimeMillis();
                 app.runTest();
                 long elapsed = System.currentTimeMillis() - t1;
-                System.out.printf("Heads: %d Flips: %d Threads: %d Time: %d ms\n", app.totalHeads, app.totalFlips, i, elapsed);
+                System.out.printf("Heads: %d Flips: %d Threads: %d Time: %d ms\n", app.getTotalHeads(), app.getTotalFlips(), i, elapsed);
             }
         } else if(args[0].equals("-scaleup")) {
             for(int i = 1; i <= numberThreads; i++) {
@@ -51,7 +44,7 @@ public class CoinFlip2 {
                 long t1 = System.currentTimeMillis();
                 app.runTest();
                 long elapsed = System.currentTimeMillis() - t1;
-                System.out.printf("Heads: %d Flips: %d Threads: %d Time: %d ms\n", app.totalHeads, app.totalFlips, i, elapsed);
+                System.out.printf("Heads: %d Flips: %d Threads: %d Time: %d ms\n", app.getTotalHeads(), app.getTotalFlips(), i, elapsed);
             }            
         } else {
             CoinFlipperApp app = new CoinFlipperApp(numberThreads, numberIterations);
@@ -60,7 +53,7 @@ public class CoinFlip2 {
             long elapsed = System.currentTimeMillis() - t1;
 
             // print results
-            System.out.printf("%d heads in %d coin tosses\n", app.totalHeads, app.totalFlips);
+            System.out.printf("%d heads in %d coin tosses\n", app.getTotalHeads(), app.getTotalFlips());
             System.out.printf("Elapsed time: %dms\n", elapsed);
         }
     }
@@ -82,6 +75,14 @@ public class CoinFlip2 {
                     numberHeads++;
                 }
             }
+        }
+
+        public int getIterations() {
+            return iterations;
+        }
+
+        public int getNumberHeads() {
+            return numberHeads;
         }
     }
     
@@ -116,10 +117,17 @@ public class CoinFlip2 {
             totalHeads = 0;
             totalFlips = 0;
             for(int i = 0; i < tasks.length; i++) {
-                totalHeads += tasks[i].numberHeads;
-                totalFlips += tasks[i].iterations;
+                totalHeads += tasks[i].getNumberHeads();
+                totalFlips += tasks[i].getIterations();
             }
-            
+        }
+
+        public int getTotalFlips() {
+            return totalFlips;
+        }
+
+        public int getTotalHeads() {
+            return totalHeads;
         }
     }
     
