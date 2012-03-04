@@ -11,23 +11,23 @@ public class BruteForceDES {
      * parallel.
      */
     public static void main(String[] args) throws InterruptedException {
-        if (args.length != 2) {
-            System.out.println("Usage: java BruteForceDES t s");
+        if(!(args.length == 2 || (args.length == 3 && args[0].matches("-speedup|-scaleup")))) {
+            System.out.println("Usage: java BruteForceDES [-scaleup|-speedup] t s");
             System.out.println(" t number of threads");
             System.out.println(" s key size in bits");
             return;
         }
 
         // get the number of threads to use
-        final int numThreads = Integer.parseInt(args[0]);
+        int numThreads = Integer.parseInt(args[args.length - 2]);
         
         // Get the argument
-        long keybits = Long.parseLong(args[1]);
+        long keybits = Long.parseLong(args[args.length - 1]);
 
-        final long maxkey = 0xFFFFFFFFFFFFFFFFL >>> (64 - keybits);
+        long maxkey = 0xFFFFFFFFFFFFFFFFL >>> (64 - keybits);
 
         // Create a simple cipher
-        final SealedDES enccipher = new SealedDES();
+        SealedDES enccipher = new SealedDES();
 
         // Get a random key within the given range
         long key = new Random().nextLong() & maxkey;
@@ -36,49 +36,21 @@ public class BruteForceDES {
         enccipher.setKey(key);
 
         // Generate a sample string
-        final String plainstr = "Johns Hopkins afraid of the big bad wolf?";
+        String plainstr = "Johns Hopkins afraid of the big bad wolf?";
 
         // Here ends the set-up.  Pretending like we know nothing except sldObj,
         // discover what key was used to encrypt the message.
 
         // Get and store the current time -- for timing
-        final long runstart = System.currentTimeMillis();
+        long runstart = System.currentTimeMillis();
 
         // start threads
         Thread[] threads = new Thread[numThreads];
         for(int i = 0; i < numThreads; i++) {
             final long startKey = i * maxkey/numThreads;
             // last thread will seach a little more of the key space to ensure every key is searched
-            final long stopKey = (i == numThreads - 1) ? maxkey : startKey + maxkey/numThreads;
-            threads[i] = new Thread(new Runnable(){
-                // Create a simple cipher
-                SealedDES deccipher = new SealedDES();
-                // Encrypt an object for each thread so that threads share nothing
-                SealedObject sldObj = enccipher.encrypt(plainstr);
-
-                @Override
-                public void run() {
-                    // Search for the right key
-                    for (long i = startKey; i < stopKey; i++) {
-                        // Set the key and decipher the object
-                        deccipher.setKey(i);
-                        String decryptstr = deccipher.decrypt(sldObj);
-
-                        // Does the object contain the known plaintext
-                        if ((decryptstr != null) && (decryptstr.indexOf("Hopkins") != -1)) {
-                            //  Remove printlns if running for time.
-                            System.out.printf(Thread.currentThread().getName() + " Found decrypt key %016x producing message: %s\n", i, decryptstr);
-                        }
-
-                        // Update progress every once in awhile.
-                        //  Remove printlns if running for time.
-                        if (i % 100000 == 0) {
-                            long elapsed = System.currentTimeMillis() - runstart;
-                            System.out.println(Thread.currentThread().getName() + " Searched key number " + i + " at " + elapsed + " milliseconds.");
-                        }
-                    }
-                }
-            }, "Thread " + i);
+            final long stopKey = (i == numThreads - 1) ? maxkey : startKey + maxkey/numThreads;            
+            threads[i] = new Thread(new SearchKeysTask(enccipher.encrypt(plainstr), "Hopkins", startKey, stopKey, runstart), "Thread " + i);
             threads[i].start();
         }
         
@@ -91,5 +63,47 @@ public class BruteForceDES {
         long elapsed = System.currentTimeMillis() - runstart;
         long keys = maxkey + 1;
         System.out.println("Completed search of " + keys + " keys at " + elapsed + " milliseconds.");
+    }
+
+    static class SearchKeysTask implements Runnable {
+        
+        private final SealedDES sealedDes;
+        private final SealedObject sealedObject;
+        private final String searchString;
+        private final long startKey;
+        private final long stopKey;
+        private final long runstart;
+
+        public SearchKeysTask(SealedObject sealedObject, String searchString, long startKey, long stopKey, long runstart) {
+            this.sealedObject = sealedObject;
+            this.searchString = searchString;
+            this.startKey = startKey;
+            this.stopKey = stopKey;
+            this.runstart = runstart;
+            // Create a simple cipher
+            this.sealedDes = new SealedDES();
+        }
+
+        @Override
+        public void run() {
+            // Search for the right key
+            for (long i = startKey; i < stopKey; i++) {
+                // Set the key and decipher the object
+                sealedDes.setKey(i);
+                String decryptstr = sealedDes.decrypt(sealedObject);
+
+                // Does the object contain the known plaintext
+                if ((decryptstr != null) && (decryptstr.indexOf(searchString) != -1)) {
+                    //  Remove printlns if running for time.
+                    System.out.printf("%s Found decrypt key %016x producing message: %s\n", Thread.currentThread().getName(), i, decryptstr);
+                }
+
+                // Update progress every once in awhile.
+                //  Remove printlns if running for time.
+                if (i % 100000 == 0) {
+                    System.out.printf("%s Searched key number %d at %d milliseconds.\n", Thread.currentThread().getName(), i, System.currentTimeMillis() - runstart);
+                }
+            }
+        }
     }
 }
