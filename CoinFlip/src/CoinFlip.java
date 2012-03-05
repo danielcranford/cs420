@@ -45,10 +45,8 @@ public class CoinFlip {
 
     private static void timeTest(int numberThreads, int numberIterations) throws InterruptedException {
         CoinFlipperApp app = new CoinFlipperApp(numberThreads, numberIterations);
-        long t1 = System.currentTimeMillis();
         app.runTest();
-        long elapsed = System.currentTimeMillis() - t1;
-        System.out.printf("Heads: %d Flips: %d Threads: %d Time: %d ms\n", app.getTotalHeads(), app.getTotalFlips(), numberThreads, elapsed);
+        System.out.printf("Heads: %d Flips: %d Threads: %d Time: %d ms Startup: %d ms\n", app.getTotalHeads(), app.getTotalFlips(), numberThreads, app.getElapsed(), app.getStartupCosts());
     }
     
     
@@ -84,6 +82,9 @@ public class CoinFlip {
         private int totalFlips;
         private int numberThreads;
         private int numberIterations;
+        private long startTime;
+        private long startupCosts;
+        private long elapsed;
         
         public CoinFlipperApp(int numberThreads, int numberIterations) {
             this.numberIterations = numberIterations;
@@ -91,6 +92,7 @@ public class CoinFlip {
         }
         
         public void runTest() throws InterruptedException {
+            startTime = System.currentTimeMillis();
             Thread threads[] = new Thread[numberThreads];
             CoinFlipperTask tasks[] = new CoinFlipperTask[numberThreads + 1];
 
@@ -99,6 +101,8 @@ public class CoinFlip {
                 threads[i] = new Thread(tasks[i]);
                 threads[i].start();
             }
+            startupCosts = System.currentTimeMillis() - startTime;
+            
             // run any left over iterations in the main thread
             tasks[numberThreads] = new CoinFlipperTask(numberIterations % numberThreads);
             tasks[numberThreads].run();
@@ -113,6 +117,7 @@ public class CoinFlip {
                 totalHeads += tasks[i].getNumberHeads();
                 totalFlips += tasks[i].getIterations();
             }
+            elapsed = System.currentTimeMillis() - startTime;
         }
 
         public int getTotalFlips() {
@@ -121,6 +126,14 @@ public class CoinFlip {
 
         public int getTotalHeads() {
             return totalHeads;
+        }
+
+        public long getElapsed() {
+            return elapsed;
+        }
+        
+        public long getStartupCosts() {
+            return startupCosts;
         }
     }
     
