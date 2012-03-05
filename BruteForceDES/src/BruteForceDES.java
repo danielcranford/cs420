@@ -32,7 +32,7 @@ public class BruteForceDES {
                 breakDes(keybits, i, false);            
             }
         } else if (args.length == 3 && args[0].equals("-scaleup")) {            
-            long baseRange = 0xFFFFFFFFFFFFFFFFL >>> (64 - keybits) + 1;
+            long baseRange = (0xFFFFFFFFFFFFFFFFL >>> (64 - keybits)) + 1;
             for(int i = 1; i <= numThreads; i++) {
                 long maxkey = baseRange * i;
                 // Accurate up to 52 bits of key
