@@ -1,1 +1,11 @@
-This is a readme file
+Contents:
+ CoinFlip - flip coins in parallel
+ BruteForceDES - crack DES in parallel
+
+Ant and a JDK is required to build the projects. To build them run the 
+command "ant jar" in the root of the project directories. (Note: 
+installing ant on ubuntu does not by install a JDK) To execute the 
+projects, run java -jar dist/CoinFlip.jar or java -jar dist/BruteForceDES.jar 
+in the root of the project directories.
+
+
