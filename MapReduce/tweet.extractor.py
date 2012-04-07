@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Extracts tweets from the json format into the format expected by the Map/Reduce engine
 import sys
 import json

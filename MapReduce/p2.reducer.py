@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 ##
 # Phase 2 reducer
 import sys

@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 ##
 # Phase 1 reducer
 import sys
@@ -11,7 +13,7 @@ def reduce(user, tagList):
     # Enumerate pairs of hash tags tweeted by the current user
     # throw tagList into a set to remove duplicates
     for (tag1, tag2) in itertools.combinations(set(tagList), 2):
-        print tag1, tag2, user
+        print "%s %s\t%s" % (tag1, tag2, user)
         
 def main():
     # first read

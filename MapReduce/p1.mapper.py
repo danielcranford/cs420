@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 ##
 # Phase 1 mapper
 import sys
@@ -19,7 +21,7 @@ def map(user, tweet):
     '''
     for word in removePunctuation(tweet).split():
         if word[0] == '#':
-            print user, word.lower()
+            print "%s\t%s" % (user, word.lower())
             
 def main():
     for line in sys.stdin:
