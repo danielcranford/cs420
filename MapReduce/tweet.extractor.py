@@ -1,4 +1,4 @@
-# Extracts tweets from the json format into the format expected by the engine
+# Extracts tweets from the json format into the format expected by the Map/Reduce engine
 import sys
 import json
 
@@ -8,7 +8,8 @@ def main():
         try:
             # json uses unicode strings and some tweets (in foreign languages) have them
             # also, some strings may contain embedded new lines which mess up the line oriented format
-            print o['user']['screen_name'].encode('utf-8'), o['text'].encode('utf-8').encode('string-escape')
+            # so use json.dumps to encode them and [1:-1] to strip off the quotes
+            print "%s\t%s" % (json.dumps(o['user']['screen_name'])[1:-1], json.dumps(o['text'])[1:-1])
         except KeyError:
             pass # ignore json objects we can't parse
 
