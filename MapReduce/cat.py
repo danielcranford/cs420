@@ -5,4 +5,4 @@
 # performs the identity mapping
 import sys
 for line in sys.stdin:
-    print line
+    print line[:-1]
