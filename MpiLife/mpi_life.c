@@ -5,24 +5,6 @@
 
 #define CELL char
 
-CELL grid[16][16] = {
-    {0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0}, 
-    {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
-CELL updates[16][16] = {0};
 
  
 typedef struct _ARRAY2D {
@@ -118,6 +100,17 @@ ARRAY2D copyArray(ARRAY2D ar) {
 }
 
 /**
+    Allocates a new array
+*/
+ARRAY2D newArray(int length, int width) {
+    ARRAY2D result;
+    result.length = length;
+    result.width = width;
+    result.data = malloc(length * width); 
+    return result;
+}
+
+/**
     Prints an array to stdout.
 */
 void printArray(ARRAY2D ar) {
@@ -156,8 +149,8 @@ void timestep(ARRAY2D grid, ARRAY2D updates, int startRow, int stopRow) {
     Calculates the lower bound (inclusive) of the rows this node is responsible 
     for.
 */ 
-int rowsLowerBound(ARRAY2D ar, int size, int rank) {
-    int rowsPerNode = ar.length / size;
+int rowsLowerBound(int rows, int size, int rank) {
+    int rowsPerNode = rows / size;
     return rank * rowsPerNode;
 }
 
@@ -165,11 +158,11 @@ int rowsLowerBound(ARRAY2D ar, int size, int rank) {
     Calculates the upper bound (exclusive) of the rows this node is responsible 
     for
 */
-int rowsUpperBound(ARRAY2D ar, int size, int rank) {
-    int rowsPerNode = ar.length / size;
+int rowsUpperBound(int rows, int size, int rank) {
+    int rowsPerNode = rows / size;
     // assign final node (rank+1=size) to handle any left over rows after even 
     // division
-    return (rank+1==size) ? ar.length : (rank+1) * rowsPerNode;
+    return (rank+1==size) ? rows : (rank+1) * rowsPerNode;
 }
 
 /**
@@ -182,19 +175,125 @@ void swapUpdates(void* sendBuff, int sendLen, int sendTo, void* recvBuff, int re
     // TODO: is it really better to do send/recv and order when MPI has SendRecv function?
     // SSend to deteck deadlocks
     if(sendFirst) {
-        MPI_SSend(sendBuff, sendLen, MPI_CHAR, sendTo, 0, MPI_COMM_WORLD);
+        MPI_Ssend(sendBuff, sendLen, MPI_CHAR, sendTo, 0, MPI_COMM_WORLD);
         MPI_Recv(recvBuff, recvLen, MPI_CHAR, recvFrom, 0, MPI_COMM_WORLD, &status);
     } else {
         MPI_Recv(recvBuff, recvLen, MPI_CHAR, recvFrom, 0, MPI_COMM_WORLD, &status);
-        MPI_SSend(sendBuff, sendLen, MPI_CHAR, sendTo, 0, MPI_COMM_WORLD);
+        MPI_Ssend(sendBuff, sendLen, MPI_CHAR, sendTo, 0, MPI_COMM_WORLD);
     }
 }
 
 /**
-    size : valid values are 1, 2, 4, 16
-    rank : 
+    Loads initial configuration at process 0 and sends it to other processes
+*/ 
+void setupArrays(const char* configFile, ARRAY2D arrays[2], int* pUpper, int* pLower) {
+    int lengthWidth[2] = {0};
+    int size, rank;
+
+    // get the size process group and the rank of this process
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    // load initial configuration at process 0
+    if(rank == 0) {
+        arrays[0] = readArray(configFile);
+        arrays[1] = newArray(arrays[0].length, arrays[0].width);
+        // check the size and number of processes - we currently only support even decompositions
+        if(arrays[0].length % size != 0) {
+            // TODO: used MPI_Scatterv and MPI_Gatherv to support uneven decompositions
+            printf("This program does not support uneven decompositions. The number of rows (%d) \n"
+                   "should be divisible by the number of processes (%d)\n", arrays[0].length, size);
+            MPI_Abort(MPI_COMM_WORLD, -1);
+        }
+        lengthWidth[0] = arrays[0].length;
+        lengthWidth[1] = arrays[0].width;
+    }
+
+    // broadcast the size of the array to everyone
+    MPI_Bcast(lengthWidth, 2, MPI_INT, 0, MPI_COMM_WORLD);  
+
+    // non root nodes must allocate buffer space
+    if(rank != 0) {
+        arrays[0] = newArray(lengthWidth[0], lengthWidth[1]);
+        arrays[1] = newArray(lengthWidth[0], lengthWidth[1]);
+    }
+
+    // calculate bounds
+    *pLower = rowsLowerBound(arrays[0].length, size, rank);
+    *pUpper = rowsUpperBound(arrays[0].length, size, rank);    
+
+    // if running on more than one process
+    if(size > 1) {
+        // TODO: requires an even size decomposition
+        // send configuration to each process
+        /*MPI_Scatter(
+                arrays[0].data, (*pUpper-*pLower)*arrays[0].width, MPI_CHAR,
+                ARRAY2D_PTR(arrays[0],*pLower,0), (*pUpper-*pLower)*arrays[0].width, MPI_CHAR,
+                0, MPI_COMM_WORLD);*/
+        // each process needs not only its own chunk, but also the row above and
+        // below it, so the simple MPI_Scatter call is insufficient
+        // Broadcasting the entire config is an inefficient solution, but it's 
+        // also simple 
+        MPI_Bcast(arrays[0].data, arrays[0].length*arrays[0].width, MPI_CHAR, 0, MPI_COMM_WORLD);  
+
+    }
+
+}
+
+/**
+    Update neighbors with adjacent rows if more than one process
 */
-void f(int size, int rank, int generations) {
+void updateOtherProcesses(int upper, int lower, ARRAY2D array) {
+    int size, rank;
+
+    // get the size process group and the rank of this process
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        
+    if(size > 1) {
+        int upRank =  (rank + 1) % size;
+        int downRank = MOD_POS(rank - 1, size);
+        int sendFirst = rank % 2 == 0;
+
+        // current node is responsible for rows [lower, upper)
+        // so send row upper-1 to upRank who stores it in lower-1
+        // and send row lower to downRank who stores it in upper
+        // send updates up
+        swapUpdates(
+            ARRAY2D_PTR(array,upper-1,0), array.width, upRank, 
+            ARRAY2D_PTR(array,lower-1,0), array.width, downRank,
+            sendFirst);
+        // send updates down
+        swapUpdates(
+            ARRAY2D_PTR(array,lower,0), array.width, downRank, 
+            ARRAY2D_PTR(array,upper,0), array.width, upRank,
+            sendFirst);
+    
+        // TODO: requires even size decomposition
+        // send entire grid back to process 0 for displaying        
+        MPI_Gather(
+            ARRAY2D_PTR(array,lower,0), (upper-lower)*array.width, MPI_CHAR,
+            array.data, (upper-lower)*array.width, MPI_CHAR,
+            0, MPI_COMM_WORLD);
+    }
+}
+
+/**
+    Display the current status process 0
+*/
+void display(ARRAY2D array, int generation) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  
+    if(rank == 0) {
+        printf("Generation %d\n", generation);
+        printArray(array);
+    }
+}
+
+/**
+*/
+void mainLoop(const char* configFile, int generations) {
     // need a pair of arrays, one to hold grid and the other to hold updates 
     //(unless we invent a more complex datastructure/algorithm to allow in-place
     // modification of the array)    
@@ -205,75 +304,22 @@ void f(int size, int rank, int generations) {
     // bounds on the rows this node handles
     int upper, lower;
 
-    // calculate bounds, current process is reponsible for rows [lower, upper)
-    lower = rowsLowerBound(arrays[active], size, rank);
-    upper = rowsUpperBound(arrays[active], size, rank);    
-
-    // load initial configuration at process 0
-    if(rank == 0) {
-        arrays[active] = readArray("initial_configuration.txt");
-        arrays[!active] = copyArray(arrays[active]);
-        // check the size and number of processes - we currently only support even decompositions
-        if(arrays[active].length % size != 0) {
-            printf("This program does not support uneven decompositions. The number of rows (%d) should be divisible by the number of processes (%d)\n", arrays[active].length, size);
-            MPI_Abort(-1);
-        } 
-    }
-    // if running on more than one process
-    if(size > 1) {
-        // TODO: requires an even size decomposition
-        // send configuration to each process
-        MPI_Scatter(
-                arrays[active].data, (upper-lower)*arrays[active].width, MPI_CHAR,
-                ARRAY2D_PTR(arrays[active],lower,0), (upper-lower)*arrays[active].width, MPI_CHAR,
-                0, MPI_COMM_WORLD);
-    }
+    setupArrays(configFile, arrays, &upper, &lower);    
 
     // loop over number of generations
     for(i = 0; i < generations; i++) {
+        display(arrays[active], i);
+
         // calculate updates
         timestep(arrays[active], arrays[!active], lower, upper);
 
         // swap arrays
         active = !active;
 
-        // update neighbors with adjacent rows if more than one process
-        if(size > 1) {
-            int upRank =  (rank + 1) % size;
-            int downRank = MOD_POS(rank - 1, size);
-            int sendFirst = rank % 2 == 0;
-
-            // current node is responsible for rows [lower, upper)
-            // so send row upper-1 to upRank who stores it in lower-1
-            // and send row lower to downRank who stores it in upper
-            // send updates up
-            swapUpdates(
-                ARRAY2D_PTR(arrays[active],upper-1,0), arrays[active].width, upRank, 
-                ARRAY2D_PTR(arrays[active],lower-1,0), arrays[active].width, downRank,
-                sendFirst);
-            // send updates down
-            swapUpdates(
-                ARRAY2D_PTR(arrays[active],lower,0), arrays[active].width, upRank, 
-                ARRAY2D_PTR(arrays[active],upper,0), arrays[active].width, downRank,
-                sendFirst);
-        
-            // TODO: requires even size decomposition
-            // send entire grid back to process 0 for displaying        
-            MPI_Gather(
-                ARRAY2D_PTR(arrays[active],lower,0), (upper-lower)*arrays[active].width, MPI_CHAR,
-                arrays[active].data, (upper-lower)*arrays[active].width, MPI_CHAR,
-                0, MPI_COMM_WORLD);
-        }
-
-        
-
-        // display at process 0
-        if(rank == 0) {
-            printf("Generation %d\n", i);
-            printArray(arrays[active]);
-        }
-
+        updateOtherProcesses(upper, lower, arrays[active]);
     }
+
+    display(arrays[active], i);
 
     // cleanup
     freeArray(arrays[0]);
@@ -281,15 +327,26 @@ void f(int size, int rank, int generations) {
 }
 
 
-
+/**
+    Main program entry point. Accepts two optional command line arguments
+    mpi_life configFile generations
+    configFile is the path to an initial configuration file in the format 
+        expected by readArray
+    generations is the number of generations to run for
+*/
 int main(int argc, char** argv) {
-    int size, rank, i;
-    MPI_Init(&argc, &argv);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    printf("I am process %d of %d\n", rank, size);
+    int generations = 64;
+    char* configFile = "glider.txt";
     
-    f(size, rank, 64);
+    MPI_Init(&argc, &argv);
+
+    // parse command line args
+    if(argc == 3) {
+        configFile = argv[1];
+        generations = atol(argv[2]);
+    }
+    
+    mainLoop(configFile, generations);
 
     MPI_Finalize();    
     return 0;
