@@ -3,10 +3,7 @@
 #include <stdlib.h>
 #include <mpi.h>
 
-#define CELL char
-
-
- 
+// structure used to hold program data 
 typedef struct _ARRAY2D {
     int length;
     int width;
